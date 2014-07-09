@@ -12,7 +12,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.bdgenomics.RNAdam</groupId>
   <artifactId>RNAdam-parent</artifactId>
-  <version>0.0.1</version>
+  <version>0.0.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>RNAdam: an ADAM-based RNA-seq quantification pipeline</name>
 
@@ -276,6 +276,11 @@
         <version>${adam.version}</version>
         <type>test-jar</type>
         <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.bdgenomics.RNAdam</groupId>
+        <artifactId>RNAdam-core</artifactId>
+        <version>${project.version}</version>
       </dependency>
       <dependency>
         <groupId>org.bdgenomics.adam</groupId>

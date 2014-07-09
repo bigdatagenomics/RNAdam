@@ -34,6 +34,8 @@ import org.bdgenomics.adam.cli.{
   Args4jBase
 }
 import org.bdgenomics.adam.rdd.ADAMContext._
+import org.bdgenomics.RNAdam.algorithms.defuse.Defuse
+import org.bdgenomics.RNAdam.models.FusionEvent
 
 object RNAdam extends ADAMCommandCompanion {
 
@@ -51,6 +53,9 @@ class RNAdamArgs extends Args4jBase with ParquetArgs with SparkArgs {
 
   @option(name = "-debug", usage = "If set, prints a higher level of debug output.")
   var debug = false
+
+  @option(name = "-α", usage = "Alpha parameter for reads to discard for insert size calculation")
+  var alpha = 0.0
 }
 
 class RNAdam(protected val args: RNAdamArgs) extends ADAMSparkCommand[RNAdamArgs] with Logging {
@@ -72,5 +77,11 @@ class RNAdam(protected val args: RNAdamArgs) extends ADAMSparkCommand[RNAdamArgs
     log.info("Loading reads in from " + args.readInput)
     // load in reads from ADAM file
     val reads: RDD[ADAMRecord] = sc.adamLoad(args.readInput)
+
+    // run defuse
+    val fusions = Defuse.run(reads, args.alpha)
+
+    // print fusions
+    fusions.foreach(f => println("Fusion event at:" + f.start + "," + f.end))
   }
 }

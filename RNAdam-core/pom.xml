@@ -6,12 +6,12 @@
   <parent>
     <groupId>org.bdgenomics.RNAdam</groupId>
     <artifactId>RNAdam-parent</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.1-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>RNAdam-core</artifactId>
-  <version>0.0.1</version>
+  <version>0.0.1-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>RNAdam-core: ADAM based RNA-seq quantification</name>
 
