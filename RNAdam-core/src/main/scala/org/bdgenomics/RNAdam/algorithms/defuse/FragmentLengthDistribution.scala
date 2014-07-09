@@ -21,6 +21,7 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 import org.bdgenomics.adam.rich.RichADAMRecord._
 import org.bdgenomics.formats.avro.ADAMRecord
+import org.bdgenomics.RNAdam.models.ReadPair
 
 object FragmentLengthDistribution extends Serializable {
 
@@ -33,35 +34,23 @@ object FragmentLengthDistribution extends Serializable {
    * @param sampleBy Optional down-sampling parameter. Default is not to sample.
    * @return (l_{min}, l_{max}): Return the min and max length.
    */
-  def findPercentiles(reads: RDD[ADAMRecord],
+  def findPercentiles(reads: RDD[ReadPair],
                       alpha: Double,
                       sampleBy: Option[Double] = None): (Long, Long) = {
     // downsample our reads if a sampling level is provided
     val sampledReads = sampleBy.fold(reads)(reads.sample(false, _))
 
     // calculate the insert distribution
-    val insertDistribution = reads.keyBy(r => Option(r.getReadName))
-      .filter(kv => kv._1.isDefined)
-      .map(kv => (kv._1.get.toString, kv._2)) // get read pairs
-      .groupByKey()
-      .map((kv: (String, Iterable[ADAMRecord])) => {
-        val (_, records) = kv
-        assert(records.size == 2 && records.forall(_.getProperPair),
-          "Reads are not proper pairs.")
+    val insertDistribution = sampledReads.map(pair => {
+      // get end of first read and start of second read
+      val endFirst = pair.first.end
+      val startSecond = Option(pair.second.getStart)
+      assert(endFirst.isDefined && startSecond.isDefined,
+        "Reads don't seem to be aligned...")
 
-        // get first and second pair of reads
-        val first = records.filter(_.getFirstOfPair).head
-        val second = records.filter(_.getSecondOfPair).head
-
-        // get end of first read and start of second read
-        val endFirst = first.end
-        val startSecond = Option(second.getStart)
-        assert(endFirst.isDefined && startSecond.isDefined,
-          "Reads don't seem to be aligned...")
-
-        // calculate insert size
-        startSecond.get - endFirst.get
-      }).countByValue()
+      // calculate insert size
+      startSecond.get - endFirst.get
+    }).countByValue()
 
     // calculate the number of reads we have
     val numSamples = insertDistribution.values.reduce(_ + _)

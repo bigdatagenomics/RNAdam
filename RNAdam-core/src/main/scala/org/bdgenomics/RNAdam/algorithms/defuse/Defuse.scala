@@ -19,6 +19,7 @@ package org.bdgenomics.RNAdam.algorithms.defuse
 
 import org.apache.spark.graphx.Graph
 import org.apache.spark.rdd.RDD
+import org.bdgenomics.RNAdam.models.{ ApproximateFusionEvent, FusionEvent, ReadPair }
 import org.bdgenomics.formats.avro.ADAMRecord
 import org.bdgenomics.RNAdam.models.{ ApproximateFusionEvent, FusionEvent }
 
@@ -34,7 +35,7 @@ object Defuse {
     trueFusions(graph, exactBoundary)
   }
 
-  def classify(records: RDD[ADAMRecord]): (RDD[ADAMRecord], RDD[ADAMRecord], RDD[ADAMRecord]) =
+  def classify(records: RDD[ADAMRecord]): (RDD[ReadPair], RDD[ReadPair], RDD[ReadPair]) =
     ???
 
   /**
@@ -45,21 +46,21 @@ object Defuse {
    * @param alpha The top/bottom % of reads to exclude.
    * @return (l_{min}, l_{max}): Return the min and max length.
    */
-  def findPercentiles(concordantRecords: RDD[ADAMRecord], alpha: Double): (Long, Long) =
+  def findPercentiles(concordantRecords: RDD[ReadPair], alpha: Double): (Long, Long) =
     FragmentLengthDistribution.findPercentiles(concordantRecords, alpha)
 
-  def buildGraph(spanningRecords: RDD[ADAMRecord], lmax: Long): Graph[ADAMRecord, ApproximateFusionEvent] =
+  def buildGraph(spanningRecords: RDD[ReadPair], lmax: Long): Graph[ReadPair, ApproximateFusionEvent] =
     ???
 
-  def bestFusions(graph: Graph[ADAMRecord, ApproximateFusionEvent]): RDD[ApproximateFusionEvent] =
+  def bestFusions(graph: Graph[ReadPair, ApproximateFusionEvent]): RDD[ApproximateFusionEvent] =
     ???
 
-  def assignSplitsToFusions(fusions: RDD[ApproximateFusionEvent], splitRecords: RDD[ADAMRecord], lmin: Long, lmax: Long): RDD[(ApproximateFusionEvent, ADAMRecord)] =
+  def assignSplitsToFusions(fusions: RDD[ApproximateFusionEvent], splitRecords: RDD[ReadPair], lmin: Long, lmax: Long): RDD[(ApproximateFusionEvent, ReadPair)] =
     ???
 
-  def findExactBoundaryForFusions(splitRecordToFusions: RDD[(ApproximateFusionEvent, ADAMRecord)]): RDD[(ApproximateFusionEvent, FusionEvent)] =
+  def findExactBoundaryForFusions(splitRecordToFusions: RDD[(ApproximateFusionEvent, ReadPair)]): RDD[(ApproximateFusionEvent, FusionEvent)] =
     ???
 
-  def trueFusions(graph: Graph[ADAMRecord, ApproximateFusionEvent], exactFusions: RDD[(ApproximateFusionEvent, FusionEvent)]): RDD[FusionEvent] =
+  def trueFusions(graph: Graph[ReadPair, ApproximateFusionEvent], exactFusions: RDD[(ApproximateFusionEvent, FusionEvent)]): RDD[FusionEvent] =
     ???
 }
