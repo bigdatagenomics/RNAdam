@@ -17,11 +17,13 @@
  */
 package org.bdgenomics.RNAdam.algorithms.defuse
 
+import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
-import org.bdgenomics.RNAdam.models.{ApproximateFusionEvent, FusionEvent, ReadPair}
+import org.bdgenomics.RNAdam.models.{ ApproximateFusionEvent, FusionEvent, ReadPair }
 import org.bdgenomics.formats.avro.ADAMRecord
 
-object Defuse {
+class Defuse(coverAlgorithm: SetCover) {
+
   def run(records: RDD[ADAMRecord],
     alpha: Double): RDD[FusionEvent] = {
     val (concordant, spanning, split) = classify(records)
@@ -74,8 +76,23 @@ object Defuse {
    * @return The fusion events which have the most support
    * @author tdanford
    */
-  def bestFusions(graph: RDD[(ApproximateFusionEvent, Seq[ReadPair])]): RDD[ApproximateFusionEvent] =
-    ???
+  def bestFusions(graph: RDD[(ApproximateFusionEvent, Seq[ReadPair])]): RDD[ApproximateFusionEvent] = {
+    val indexedFusionEvents: RDD[(Long, (ApproximateFusionEvent, Seq[ReadPair]))] =
+      graph.zipWithUniqueId().map(p => (p._2, p._1))
+
+    val universe: RDD[ReadPair] = graph.flatMap(_._2).distinct()
+    val subsets: RDD[(Long, Set[ReadPair])] = indexedFusionEvents.map {
+      case (id: Long, (evt: ApproximateFusionEvent, readPairs: Seq[ReadPair])) =>
+        (id, readPairs.toSet)
+    }
+
+    val assignments: RDD[(ReadPair, Long)] = coverAlgorithm.calculateSetCover(universe, subsets)
+    val selectedSubsets: RDD[(Long, Long)] = assignments.map(p => (p._2, p._2)).distinct()
+
+    indexedFusionEvents.join(selectedSubsets).map {
+      case (id: Long, ((evt: ApproximateFusionEvent, reads: Seq[ReadPair]), _id: Long)) => evt
+    }
+  }
 
   /**
    * @param fusions
