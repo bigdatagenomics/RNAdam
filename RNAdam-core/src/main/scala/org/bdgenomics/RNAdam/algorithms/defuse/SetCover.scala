@@ -31,5 +31,6 @@ trait SetCover extends Serializable {
    * @param subsets An (indexed) set of subsets of the elements in the universe
    * @return An assignment of each element of the universe to one of the indexed subsets.
    */
-  def calculateSetCover[U](universe: RDD[U], subsets: RDD[(Long, Set[U])])(implicit argU: ClassTag[U]): RDD[(U, Long)]
+  def calculateSetCover[U, S](universe: RDD[U], subsets: RDD[(S, Set[U])])(
+    implicit argU: ClassTag[U], argS: ClassTag[S]): RDD[(U, S)]
 }

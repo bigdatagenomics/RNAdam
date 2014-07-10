@@ -33,58 +33,54 @@ class GreedyVertexCover extends SetCover {
    * @return A set of indices -- taking the union of all subsets indexed by the result should
    *         recover the universe
    */
-  override def calculateSetCover[U](universe: RDD[U], subsets: RDD[(Long, Set[U])])(implicit argU: ClassTag[U]): RDD[(U, Long)] = {
+  override def calculateSetCover[U, S](universe: RDD[U], subsets: RDD[(S, Set[U])])(implicit argU: ClassTag[U], argS: ClassTag[S]): RDD[(U, S)] = {
 
-    var assignment: RDD[(U, Long)] = universe.map(u => (u, -1L))
+    var assignment: RDD[(U, Option[S])] = universe.map(u => (u, None))
 
-    while (assignment.filter(_._2 == -1).count() != 0) {
+    while (assignment.filter(!_._2.isDefined).count() != 0) {
 
       // Find the as-yet-uncovered elements of the universe.
-      val uncovered: RDD[(U, Long)] = assignment.filter(_._2 == -1L)
+      val uncovered: RDD[(U, Option[S])] = assignment.filter(!_._2.isDefined)
 
       // For each subset (indexed by its subsetId), count how many of the
       // uncovered elements of the universe are covered by the subset
       // Call this the 'subset-coverage value' for each subset
-      val elementToSubsetMap: RDD[(U, Long)] = subsets.flatMap {
-        case (id: Long, subset: Set[U]) => subset.map(u => (u, id)).toSeq
-      }
 
-      val uncoveredMap: RDD[(U, (Long, Long))] = elementToSubsetMap.join(uncovered)
+      def mapWithSubset(pair: (S, Set[U])): Seq[(U, S)] = pair._2.map(u => (u, pair._1)).toSeq
+      val elementToSubsetMap: RDD[(U, S)] = subsets.flatMap(mapWithSubset)
 
-      val subsetToUncoveredMap: RDD[(Long, U)] = uncoveredMap.map(p => (p._2._1, p._1))
+      val uncoveredMap: RDD[(U, (S, Option[S]))] = elementToSubsetMap.join(uncovered)
 
-      val subsetToGroupedUncovered: RDD[(Long, Iterable[U])] = subsetToUncoveredMap.groupByKey()
+      val subsetToUncoveredMap: RDD[(S, U)] = uncoveredMap.map(p => (p._2._1, p._1))
 
-      val subsetCoverage: RDD[(Long, Int)] = subsetToGroupedUncovered.map {
-        case (subsetId: Long, uncoveredElements: Iterable[U]) => (subsetId, uncoveredElements.size)
-      }
+      val subsetToGroupedUncovered: RDD[(S, Iterable[U])] = subsetToUncoveredMap.groupByKey()
+
+      def countIterable(pair: (S, Iterable[U])): (S, Int) = (pair._1, pair._2.size)
+      val subsetCoverage: RDD[(S, Int)] = subsetToGroupedUncovered.map(countIterable)
 
       // Find the MAX subset-coverage value
       val maxCoverage: Int = subsetCoverage.map(_._2).max()
 
       // Find the subset whose subset-coverage value is equal to the max --
       // if there is more than one such subset, pick one at random
-      val maxSubsetId: Long = subsetCoverage.filter {
-        case (subsetId: Long, coverageSize: Int) => coverageSize >= maxCoverage
-      }.first()._1
+      def hasMaxCoverage(pair: (S, Int)): Boolean = pair._2 >= maxCoverage
+      val maxSubset: S = subsetCoverage.filter(hasMaxCoverage).first()._1
 
       // these are the elements in the universe which are now covered
       // by our chosen maximal subset.
-      val covered: RDD[(U, Long)] = subsets.filter(_._1 == maxSubsetId).flatMap {
-        case (id: Long, subset: Set[U]) => subset.map(u => (u, maxSubsetId))
-      }
+      val covered: RDD[(U, S)] = subsets.filter(_._1 == maxSubset).flatMap(mapWithSubset)
 
-      def combineAssignments(assignment: (U, (Long, Option[Long]))): (U, Long) =
+      def combineAssignments(assignment: (U, (Option[S], Option[S]))): (U, Option[S]) =
         assignment._2._2 match {
           case None => (assignment._1, assignment._2._1)
-          case Some(newAssignment) => (assignment._1, newAssignment)
+          case Some(newAssignment) => (assignment._1, Some(newAssignment))
         }
 
       // Update the assignments, to include all the new elements.
       assignment = assignment.leftOuterJoin(covered).map(combineAssignments)
     }
 
-    assignment
+    assignment.map(p => (p._1, p._2.get))
   }
 
 }

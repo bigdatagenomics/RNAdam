@@ -29,7 +29,7 @@ class GreedyVertexCoverTestSuite extends SparkFunSuite {
     val subsets = sc.parallelize(Seq(0L -> Set(1, 2, 3)))
 
     val assignments: Map[Int, Long] =
-      coverAlgorithm.calculateSetCover[Int](universe, subsets).collect().toMap
+      coverAlgorithm.calculateSetCover[Int, Long](universe, subsets).collect().toMap
 
     assert(assignments.size === 3)
     assert(assignments(1) === 0L)
@@ -42,7 +42,7 @@ class GreedyVertexCoverTestSuite extends SparkFunSuite {
     val subsets = sc.parallelize(Seq(0L -> Set(1, 2, 3, 4), 1L -> Set(5, 6), 2L -> Set(6)))
 
     val assignments: Map[Int, Long] =
-      coverAlgorithm.calculateSetCover[Int](universe, subsets).collect().toMap
+      coverAlgorithm.calculateSetCover[Int, Long](universe, subsets).collect().toMap
 
     assert(assignments.size === 6)
     assert(assignments(1) === 0L)
@@ -58,7 +58,7 @@ class GreedyVertexCoverTestSuite extends SparkFunSuite {
     val subsets = sc.parallelize(Seq(0L -> Set(1, 2, 3, 4), 1L -> Set(3, 4, 5), 2L -> Set(6)))
 
     val assignments: Map[Int, Long] =
-      coverAlgorithm.calculateSetCover[Int](universe, subsets).collect().toMap
+      coverAlgorithm.calculateSetCover[Int, Long](universe, subsets).collect().toMap
 
     assert(assignments.size === 6)
     assert(assignments(1) === 0L)
