@@ -30,7 +30,7 @@ import org.bdgenomics.formats.avro.ADAMRecord
 class Defuse(coverAlgorithm: SetCover, alpha: Double) {
 
   def run(records: RDD[ADAMRecord],
-    seqDict: SequenceDictionary): RDD[FusionEvent] = {
+          seqDict: SequenceDictionary): RDD[FusionEvent] = {
     val (concordant, spanning, split) = classify(records)
     val (lmin, lmax) = findPercentiles(concordant)
     val graph = buildGraph(spanning, lmax)
@@ -107,10 +107,10 @@ class Defuse(coverAlgorithm: SetCover, alpha: Double) {
    * @author carlyeks
    */
   def assignSplitsToFusions(fusions: RDD[ApproximateFusionEvent],
-    splitRecords: RDD[ReadPair],
-    seqDict: SequenceDictionary,
-    lmin: Long,
-    lmax: Long): RDD[(ApproximateFusionEvent, ReadPair)] = {
+                            splitRecords: RDD[ReadPair],
+                            seqDict: SequenceDictionary,
+                            lmin: Long,
+                            lmax: Long): RDD[(ApproximateFusionEvent, ReadPair)] = {
     SplitAssigner.assignSplitsToFusions(fusions, splitRecords, seqDict, lmin, lmax)
   }
 

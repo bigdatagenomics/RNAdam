@@ -15,28 +15,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.bdgenomics.RNAdam.models
+package org.bdgenomics.RNAdam.algorithms.cliques
 
-import org.bdgenomics.adam.models.ReferenceRegion
-
-case class ApproximateFusionEvent(start: ReferenceRegion, end: ReferenceRegion) {
+private[cliques] object NeighborMessage {
 
   /**
-   * Determines whether two approximate fusion events overlap.
+   * Creates an empty neighbor message. Used for initial pregel step.
    *
-   * @return True if both ends of the fusion event overlap.
+   * @return Uninitialized neighbor message.
    */
-  def overlaps(afe: ApproximateFusionEvent): Boolean = {
-    start.overlaps(afe.start) && end.overlaps(afe.end)
-  }
+  def apply(): NeighborMessage = NeighborMessage(Seq())
 
   /**
-   * Generates the intersection of two events.
+   * Returns a basic neighbor message.
    *
-   * @param afe Event to intersect with.
-   * @return A new intersecting event.
+   * @param vid Vertex ID.
+   * @return Returns a node specific neighbor message.
    */
-  def intersection(afe: ApproximateFusionEvent): ApproximateFusionEvent = {
-    ApproximateFusionEvent(start.intersection(afe.start), end.intersection(afe.end))
+  def apply(vid: Long): NeighborMessage = NeighborMessage(Seq(vid))
+
+  /**
+   * Merges two neighbor messages.
+   *
+   * @param n1 Message to merge.
+   * @param n2 Message to merge.
+   * @return Merged message.
+   */
+  def merge(n1: NeighborMessage, n2: NeighborMessage): NeighborMessage = {
+    new NeighborMessage(n1.vid ++ n2.vid)
   }
+}
+
+private[cliques] case class NeighborMessage(vid: Seq[Long]) {
 }

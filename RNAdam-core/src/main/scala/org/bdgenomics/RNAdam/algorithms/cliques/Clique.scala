@@ -15,28 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.bdgenomics.RNAdam.models
+package org.bdgenomics.RNAdam.algorithms.cliques
 
-import org.bdgenomics.adam.models.ReferenceRegion
+case class Clique(nodes: Set[Long]) {
 
-case class ApproximateFusionEvent(start: ReferenceRegion, end: ReferenceRegion) {
+  override def toString(): String = nodes.toString
 
-  /**
-   * Determines whether two approximate fusion events overlap.
-   *
-   * @return True if both ends of the fusion event overlap.
-   */
-  def overlaps(afe: ApproximateFusionEvent): Boolean = {
-    start.overlaps(afe.start) && end.overlaps(afe.end)
+  override def hashCode(): Int = {
+    nodes.map(v => {
+      v.toInt + (v >> 32).toInt
+    }).fold(0)(_ + _)
   }
 
-  /**
-   * Generates the intersection of two events.
-   *
-   * @param afe Event to intersect with.
-   * @return A new intersecting event.
-   */
-  def intersection(afe: ApproximateFusionEvent): ApproximateFusionEvent = {
-    ApproximateFusionEvent(start.intersection(afe.start), end.intersection(afe.end))
+  override def equals(o: Any): Boolean = o match {
+    case (c: Clique) => c.nodes == nodes
+    case _           => false
   }
 }

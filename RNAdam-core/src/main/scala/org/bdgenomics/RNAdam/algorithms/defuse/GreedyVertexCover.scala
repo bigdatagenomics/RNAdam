@@ -72,7 +72,7 @@ class GreedyVertexCover extends SetCover {
 
       def combineAssignments(assignment: (U, (Option[S], Option[S]))): (U, Option[S]) =
         assignment._2._2 match {
-          case None => (assignment._1, assignment._2._1)
+          case None                => (assignment._1, assignment._2._1)
           case Some(newAssignment) => (assignment._1, Some(newAssignment))
         }
 

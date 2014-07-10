@@ -44,10 +44,10 @@ object SplitAssigner {
   }
 
   def assignSplitsToFusions(events: RDD[ApproximateFusionEvent],
-    records: RDD[ReadPair],
-    seqDict: SequenceDictionary,
-    lmin: Long,
-    lmax: Long): RDD[(ApproximateFusionEvent, ReadPair)] = {
+                            records: RDD[ReadPair],
+                            seqDict: SequenceDictionary,
+                            lmin: Long,
+                            lmax: Long): RDD[(ApproximateFusionEvent, ReadPair)] = {
     val referenceRegions = referenceRegionsForEvents(events, lmin, lmax)
     val flattenedRecords = records.flatMap(rp => Seq(
       if (rp.first.getReadMapped) Some((rp.first, rp)) else None,

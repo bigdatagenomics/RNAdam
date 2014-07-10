@@ -33,8 +33,8 @@ object FragmentLengthDistribution extends Serializable {
    * @return (l_{min}, l_{max}): Return the min and max length.
    */
   def findPercentiles(reads: RDD[ReadPair],
-    alpha: Double,
-    sampleBy: Option[Double] = None): (Long, Long) = {
+                      alpha: Double,
+                      sampleBy: Option[Double] = None): (Long, Long) = {
     // downsample our reads if a sampling level is provided
     val sampledReads = sampleBy.fold(reads)(reads.sample(false, _))
 
