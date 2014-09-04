@@ -18,10 +18,11 @@
 package org.bdgenomics.RNAdam.algorithms.defuse
 
 import org.apache.spark.SparkContext._
+import org.bdgenomics.adam.models.SequenceDictionary
+import org.apache.spark.graphx.Graph
 import org.apache.spark.rdd.RDD
 import org.bdgenomics.RNAdam.models.{ ApproximateFusionEvent, FusionEvent, ReadPair }
-import org.bdgenomics.adam.models.SequenceDictionary
-import org.bdgenomics.formats.avro.ADAMRecord
+import org.bdgenomics.formats.avro.{ ADAMContig, ADAMRecord }
 
 /**
  *
@@ -52,8 +53,10 @@ class Defuse(coverAlgorithm: SetCover, alpha: Double) {
    * @author anitacita99
    *         dcunningham
    */
-  def classify(records: RDD[ADAMRecord]): (RDD[ReadPair], RDD[ReadPair], RDD[ReadPair]) =
-    ???
+
+  def classify(records: RDD[ADAMRecord]): (RDD[ReadPair], RDD[ReadPair], RDD[ReadPair]) = {
+    Classifier.classify(records)
+  }
 
   /**
    * Calculates a fragment length distribution, and excludes outliers given an
