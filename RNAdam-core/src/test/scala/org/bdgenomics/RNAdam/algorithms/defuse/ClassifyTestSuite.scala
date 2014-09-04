@@ -26,7 +26,6 @@ import org.bdgenomics.formats.avro.{ ADAMRecord, ADAMContig }
 class ClassifyTestSuite extends SparkFunSuite {
 
   sparkTest("Basic sanity check") {
-    val mySc = sc // this is your SparkContext
 
     val contig1 = ADAMContig.newBuilder
       .setContigName("chr1")
@@ -67,7 +66,7 @@ class ClassifyTestSuite extends SparkFunSuite {
     val rn2cnNull_a = ADAMRecord.newBuilder()
       .setReadName("readName1")
       .setSecondOfPair(true)
-      .setReadMapped(true)
+      .setReadMapped(false)
       .setContig(null)
       .build()
 
@@ -77,9 +76,9 @@ class ClassifyTestSuite extends SparkFunSuite {
 
     val (concordant: RDD[ReadPair], spanning: RDD[ReadPair], split: RDD[ReadPair]) = defuse.classify(recordsRdd)
 
-    println("count concordant: " + concordant.count())
-    println("count spanning: " + spanning.count)
-    println("count split: " + split.count)
+    //println("count concordant: " + concordant.count())
+    //println("count spanning: " + spanning.count)
+    //println("count split: " + split.count)
     assert(concordant.count === 1)
     assert(spanning.count === 1)
     assert(split.count === 1)
