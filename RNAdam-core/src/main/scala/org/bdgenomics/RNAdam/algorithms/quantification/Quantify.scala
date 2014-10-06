@@ -105,7 +105,13 @@ object Quantify extends Serializable with Logging {
    */
   private[quantification] def initializeEM(equivalenceClassCounts: RDD[(Long, Long)],
                                            equivalenceClassToTranscript: RDD[(Long, Iterable[String])]): RDD[(Long, Iterable[(String, Double)])] = {
-    ???
+    equivalenceClassCounts.join(equivalenceClassToTranscript).map((x: (Long, (Long, Iterable[String]))) => {
+      val normCoverage: Double = x._2._1.toDouble / x._2._2.size()
+      val iter2: Iterable[(String, Double)] = x._2._2.map((y: String) => {
+        (y, normCoverage)
+      })
+      (x._1, iter2)
+    })
   }
 
   /**
