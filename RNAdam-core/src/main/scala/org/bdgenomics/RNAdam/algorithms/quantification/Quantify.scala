@@ -161,6 +161,13 @@ object Quantify extends Serializable with Logging {
    */
   private[quantification] def joinTranscripts(transcripts: RDD[Transcript],
                                               transcriptWeights: RDD[(String, Double, Iterable[Long])]): RDD[(Transcript, Double)] = {
-    ???
+
+    // RDD of ( ID, coverage ):
+    val coverage = transcriptWeights.map(t => (t._1, t._2));
+
+    // RDD of (Transcript) -> RDD of (ID, Transcript) -> RDD of (ID, (Transcript, Coverage)) -> RDD of (Transcript, Coverage)
+    val j: RDD[(Transcript, Double)] = transcripts.keyBy(t => t.id).join(coverage).map(t => t._2);
+
+    return j;
   }
 }
