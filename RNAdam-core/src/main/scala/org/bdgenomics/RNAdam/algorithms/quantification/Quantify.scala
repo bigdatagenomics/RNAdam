@@ -165,9 +165,9 @@ object Quantify extends Serializable with Logging {
     // RDD of ( ID, coverage ):
     val coverage = transcriptWeights.map(t => (t._1, t._2));
 
+
     // Goes from RDD of (Transcript) -> RDD of (ID, Transcript) 
     //-> RDD of (ID, (Transcript, Coverage)) -> RDD of (Transcript, Coverage)
     transcripts.keyBy(t => t.id).join(coverage).map(t => t._2);
-
   }
 }
