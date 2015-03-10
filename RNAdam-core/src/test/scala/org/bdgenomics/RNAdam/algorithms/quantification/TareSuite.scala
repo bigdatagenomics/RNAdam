@@ -26,7 +26,11 @@ import scala.util.Random
 class TareSuite extends RNAdamFunSuite {
 
   def fpEquals(a: Double, b: Double, eps: Double = 1e-6): Boolean = {
-    abs(a - b) <= eps
+    val passed = abs(a - b) <= eps
+    if (!passed) {
+      println("|" + a + " - " + b + "| = " + abs(a - b) + "> " + eps)
+    }
+    passed
   }
 
   test("can't process illegal k-mers") {
@@ -88,4 +92,58 @@ class TareSuite extends RNAdamFunSuite {
     assert(originalMax > newMax)
     assert(originalMin < newMin)
   }
+
+  sparkTest("test of Tare.calibrateTxLenBias for 4 hand-picked values") {
+    val itLong: Iterable[Long] = Seq(1L, 2L, 3L)
+    val muHat: RDD[(String, Double, Iterable[Long])] = sc.parallelize(Seq(
+      ("a", 0.28, itLong),
+      ("b", 0.17, itLong),
+      ("c", 0.31, itLong),
+      ("d", 0.24, itLong)))
+    val tLen: scala.collection.Map[String, Long] = (new scala.collection.immutable.HashMap[String, Long]()).+(
+      ("a", 28L),
+      ("b", 17L),
+      ("c", 31L),
+      ("d", 24L))
+    val calMuHat: RDD[(String, Double, Iterable[Long])] = Tare.calibrateTxLenBias(muHat, tLen)
+    assert(calMuHat.count() === 4)
+    val a: Double = calMuHat.filter((x => x._1 == "a")).first()._2
+    val b: Double = calMuHat.filter((x => x._1 == "b")).first()._2
+    val c: Double = calMuHat.filter((x => x._1 == "c")).first()._2
+    val d: Double = calMuHat.filter((x => x._1 == "d")).first()._2
+    assert(fpEquals(a, 0.25))
+    assert(fpEquals(b, 0.25))
+    assert(fpEquals(c, 0.25))
+    assert(fpEquals(d, 0.25))
+  }
+
+  sparkTest("randomized test of Tare.calibrateTxLenBias for small data size") {
+    test(10)
+  }
+
+  sparkTest("randomize test of Tare.calibrateTxLenBias for larger data size") {
+    test(10000)
+  }
+
+  def test(dataSize: Int) = {
+    // This iterable of longs is just a placeholder.
+    val itLong: Iterable[Long] = Seq(1L, 2L, 3L)
+
+    // Randomly generate a sequence of numbers and use them to assemble data.
+    // The seed value was chosen at 11:34 AM on Feb 6
+    val rand: Random = new Random(113402062015L)
+    val r: Seq[(String, Long)] = (0 to dataSize).map(i => (i.toString, 1L + rand.nextInt(10)))
+    val sum: Double = r.map(x => x._2).reduce((x, y) => x + y).toDouble
+    val tLen: scala.collection.Map[String, Long] = (new scala.collection.immutable.HashMap()).++(r)
+    val muHat: RDD[(String, Double, Iterable[Long])] = sc.parallelize(r).map(x => (x._1, x._2 / sum, itLong))
+
+    // Runs Tare.calibrateTxLenBias()
+    val calMuHat: RDD[(String, Double, Iterable[Long])] = Tare.calibrateTxLenBias(muHat, tLen)
+
+    // Checks for correct answer. Since all variation in abundance
+    // is due to transcript length, all transcript should have equal
+    // calibrated abundance.
+    calMuHat.collect().foreach(x => assert(fpEquals(x._2, 1.0 / (dataSize + 1))))
+  }
+
 }

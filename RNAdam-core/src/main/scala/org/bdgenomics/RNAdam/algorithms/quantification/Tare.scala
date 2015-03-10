@@ -19,9 +19,11 @@ package org.bdgenomics.RNAdam.algorithms.quantification
 
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.mllib.linalg.Vectors
-import org.apache.spark.mllib.regression.{ LabeledPoint, LinearRegressionWithSGD }
+import org.apache.spark.mllib.regression.{ LabeledPoint, LinearRegressionModel, LinearRegressionWithSGD }
 import scala.math.{ exp, log }
+import org.jblas.{ DoubleMatrix, Solve }
 
 object Tare extends Serializable {
 
@@ -131,5 +133,62 @@ object Tare extends Serializable {
     kmersAndFeatures.unpersist()
 
     calibratedKmers
+  }
+
+  /**
+   * Trains a linear regression model of the log of the transcript abundances
+   * versus the log of the transcript lengths.
+   * This is used to recalibrate the transcript abundances.
+   * Warning: This procedure assumes that the abundances are all > 0
+   * The log is undefined for numbers <= 0
+   *
+   * @param muHat An RDD containing the transcript abundances.
+   * @param tLen A mapping from transcript names to their lengths.
+   * @param samplingRate The fraction of the RDD that should be picked a sample when performing linear regression.
+   * @return The recalibrated transcript abundances.
+   */
+  def calibrateTxLenBias(muHat: RDD[(String, Double, Iterable[Long])],
+                         tLen: scala.collection.Map[String, Long],
+                         samplingRate: Double = 1.0): RDD[(String, Double, Iterable[Long])] = {
+    // A local (not distributed) copy of muHat without the equivalence
+    // class ids. Removing these ids saves space since they are
+    // not used here.
+    val local: Array[(String, Double)] = muHat.map(mh => (mh._1, mh._2)).sample(false, samplingRate).collect()
+
+    // Calculate the log of the average (mean) abundance.
+    // Since all the abundances sum to 1.0 by definition,
+    // this is simply 1.0 divided by the number of transcripts.
+    // Use the fact that log(1.0 / x) = -log(x)
+    val mean: Double = -log(local.length.toDouble)
+
+    // Do linear regression by constructing and solving matrix equation.
+    // We did not use Spark MLLib because it did not converge the correct
+    // values. The problem appears to be with using one-dimensional feature
+    // vectors on small sample sizes. So we used JBLAS Linear Algebra for Java.
+    val y: DoubleMatrix = new DoubleMatrix(local.map(mh => log(mh._2)))
+    val slopev: DoubleMatrix = new DoubleMatrix(local.map(mh => log(tLen(mh._1).toDouble)))
+    val intv: DoubleMatrix = DoubleMatrix.ones(local.length)
+    val x: DoubleMatrix = DoubleMatrix.concatHorizontally(slopev, intv)
+    val xt: DoubleMatrix = x.transpose()
+    val xtx: DoubleMatrix = xt.mmul(x)
+    val xty: DoubleMatrix = xt.mmul(y)
+    val soln: DoubleMatrix = Solve.solve(xtx, xty)
+    val slope: Double = soln.get(0, 0)
+    val intercept: Double = soln.get(1, 0)
+
+    // Use the slope and the intercept found through regression
+    // to calibrate transcript abundances to correct for variation
+    // in  transcript lengths. These calibrated abundances may not
+    // add up to 1 because regression was done on a logarithmic scale.
+    // muHat is used here instead of local because in the future, local
+    // might become a sample of muHat instead of a full copy.
+    // Furthermore, doing too much locally may create a larger than
+    // necessary bottleneck in the computation.
+    val calMuHat: RDD[(String, Double, Iterable[Long])] = muHat.map(mh => (mh._1, exp(mean + (((slope * mh._2) + intercept) - mh._2)), mh._3))
+
+    val totalAbundance: Double = calMuHat.map(mh => mh._2).reduce((x: Double, y: Double) => x + y)
+
+    // Return the calibrated abundances.
+    calMuHat.map((mh: (String, Double, Iterable[Long])) => (mh._1, mh._2 / totalAbundance, mh._3))
   }
 }

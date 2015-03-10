@@ -27,8 +27,12 @@ import scala.math.abs
 
 class QuantifySuite extends RNAdamFunSuite {
 
-  def fpEquals(a: Double, b: Double, tol: Double = 1e-3): Boolean = {
-    abs(a - b) < tol
+  def fpEquals(a: Double, b: Double, eps: Double = 1e-6): Boolean = {
+    val passed = abs(a - b) <= eps
+    if (!passed) {
+      println("|" + a + " - " + b + "| = " + abs(a - b) + "> " + eps)
+    }
+    passed
   }
 
   sparkTest("test of mapKmersToClasses") {
@@ -393,7 +397,9 @@ class QuantifySuite extends RNAdamFunSuite {
         Iterable(),
         Iterable()))),
       20,
-      20).collect
+      20,
+      false,
+      false).collect
       .map(kv => (kv._1.id, kv._2))
       .toMap
 
@@ -451,7 +457,9 @@ class QuantifySuite extends RNAdamFunSuite {
         Iterable(),
         Iterable()))),
       20,
-      50).collect
+      50,
+      false,
+      false).collect
       .map(kv => (kv._1.id, kv._2))
       .toMap
 
@@ -495,6 +503,7 @@ class QuantifySuite extends RNAdamFunSuite {
         Iterable()))),
       20,
       20,
+      false,
       false).collect
       .map(kv => (kv._1.id, kv._2))
       .toMap
@@ -507,4 +516,95 @@ class QuantifySuite extends RNAdamFunSuite {
     assert(fpEquals(relativeAbundances("4"), 0.1, 0.05))
     assert(fpEquals(relativeAbundances("5"), 0.1, 0.05))
   }
+
+  sparkTest("quantify unique transcripts where length bias is so strong that all variation in transcript abundance is due to length") {
+    // generate transcripts
+    val tLen = Seq(1000, 600, 400, 550, 1275, 1400)
+    val (transcripts,
+      names,
+      kmerMap,
+      classMap) = TranscriptGenerator.generateIndependentTranscripts(20,
+      tLen,
+      Some(1234L))
+    // generate reads
+    val totLen = tLen.sum.toDouble
+    val reads = ReadGenerator(transcripts, tLen.map(x => x / totLen), 10000, 75, Some(4321L))
+
+    // run quantification
+    val relativeAbundances = Quantify(sc.parallelize(reads),
+      sc.parallelize(kmerMap.toSeq),
+      sc.parallelize(classMap.toSeq),
+      sc.parallelize(names.zip(tLen).map(p => Transcript(p._1,
+        Seq(p._1),
+        p._1,
+        true,
+        Iterable(Exon(p._1 + "exon",
+          p._1,
+          true,
+          ReferenceRegion(p._1, 0, p._2.toLong))),
+        Iterable(),
+        Iterable()))),
+      20,
+      20,
+      true,
+      true).collect
+      .map(kv => (kv._1.id, kv._2))
+      .toMap
+
+    assert(relativeAbundances.size === 6)
+    assert(fpEquals(relativeAbundances("0"), 1.0 / 6, 0.05))
+    assert(fpEquals(relativeAbundances("1"), 1.0 / 6, 0.05))
+    assert(fpEquals(relativeAbundances("2"), 1.0 / 6, 0.05))
+    assert(fpEquals(relativeAbundances("3"), 1.0 / 6, 0.05))
+    assert(fpEquals(relativeAbundances("4"), 1.0 / 6, 0.05))
+    assert(fpEquals(relativeAbundances("5"), 1.0 / 6, 0.05))
+  }
+
+  sparkTest("quantify unique transcripts with a weaker length bias") {
+    // generate transcripts
+    val tLen = Seq(1000, 600, 400, 550, 1275, 1400) // average length is 870.83
+    val (transcripts,
+      names,
+      kmerMap,
+      classMap) = TranscriptGenerator.generateIndependentTranscripts(20,
+      tLen,
+      Some(1234L))
+
+    // generate reads
+    val reads = ReadGenerator(transcripts, Seq(0.2, 0.1, 0.05, 0.2, 0.05, 0.4), 10000, 75, Some(4321L))
+
+    // run quantification
+    val relativeAbundances = Quantify(sc.parallelize(reads),
+      sc.parallelize(kmerMap.toSeq),
+      sc.parallelize(classMap.toSeq),
+      sc.parallelize(names.zip(tLen).map(p => Transcript(p._1,
+        Seq(p._1),
+        p._1,
+        true,
+        Iterable(Exon(p._1 + "exon",
+          p._1,
+          true,
+          ReferenceRegion(p._1, 0, p._2.toLong))),
+        Iterable(),
+        Iterable()))),
+      20,
+      20,
+      true,
+      true).collect
+      .map(kv => (kv._1.id, kv._2))
+      .toMap
+
+    assert(relativeAbundances.size === 6)
+
+    // Transcript 2 is the shortest at 440 bp, and is one of the least abundant
+    // Part of this low abundance is bias due to short length, so calibration
+    // should increase its abundance.
+    assert(relativeAbundances("2") > 0.05)
+
+    // Transcript 5 is the longest at 1400 bp. It is the most abundant.
+    // Part of this high abudnace is bias due to long length.
+    // Calibration should therefore decrease its abundance.
+    assert(relativeAbundances("5") < 0.4)
+  }
+
 }

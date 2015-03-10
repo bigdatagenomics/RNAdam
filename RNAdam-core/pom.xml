@@ -137,5 +137,9 @@
       <artifactId>scalatest_${scala.version.prefix}</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.jblas</groupId>
+      <artifactId>jblas</artifactId>
+    </dependency>
   </dependencies>
 </project>
