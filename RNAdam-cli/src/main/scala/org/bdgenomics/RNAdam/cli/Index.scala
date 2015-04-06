@@ -17,12 +17,15 @@
  */
 package org.bdgenomics.RNAdam.cli
 
+import java.io.File
 import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.{ Logging, SparkContext }
 import org.bdgenomics.adam.rdd.ADAMContext._
+import org.bdgenomics.adam.util.{ TwoBitFile, ReferenceFile }
 import org.bdgenomics.RNAdam.algorithms.quantification.{ Index => Indexer }
 import org.bdgenomics.RNAdam.avro._
 import org.bdgenomics.utils.cli._
+import org.bdgenomics.utils.parquet.io.{ LocalFileByteAccess }
 import org.bdgenomics.utils.parquet.rdd.BDGParquetContext._
 import org.kohsuke.args4j.{ Argument, Option => Args4jOption }
 
@@ -54,7 +57,7 @@ class Index(protected val args: IndexArgs) extends BDGSparkCommand[IndexArgs] wi
 
   def run(sc: SparkContext, job: Job) {
     // load genome
-    val genome = sc.loadSequence(args.genome)
+    val genome = new TwoBitFile(new LocalFileByteAccess(new File(args.genome)))
 
     // load gene annotations and transform to transcripts
     val transcripts = sc.loadGenes(args.genes)

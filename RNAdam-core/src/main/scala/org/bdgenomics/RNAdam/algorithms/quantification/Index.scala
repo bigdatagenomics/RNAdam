@@ -19,9 +19,11 @@ package org.bdgenomics.RNAdam.algorithms.quantification
 
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
+import org.apache.spark.SparkContext._
 import org.bdgenomics.adam.rdd.ADAMContext._
 import org.bdgenomics.formats.avro.NucleotideContigFragment
 import org.bdgenomics.adam.models.{ Exon, Transcript }
+import org.bdgenomics.adam.util.{ TwoBitFile, ReferenceFile }
 
 object Index extends Serializable with Logging {
 
@@ -39,46 +41,34 @@ object Index extends Serializable with Logging {
    * Patro, Rob, Stephen M. Mount, and Carl Kingsford. "Sailfish enables alignment-free
    * isoform quantification from RNA-seq reads using lightweight algorithms." Nature biotechnology 32.5 (2014): 462-464.
    *
-   * @param reference An RDD containing fragments which contain reference contigs.
+   * @param referenceFile A ReferenceFile representing the chromosome
    * @param transcripts An RDD containing transcripts.
    * @param kmerLength The length _k_ of the k-mers for us to index.
    * @return Returns a tuple containing two RDDs: the first RDD maps k-mers to equivalence class
    *         IDs, the second maps equivalence class IDs to an iterable of member k-mers.
    */
-  def apply(reference: RDD[NucleotideContigFragment],
+  def apply(referenceFile: ReferenceFile,
             transcripts: RDD[Transcript],
             kmerLength: Int): (RDD[(String, Long)], RDD[(Long, Iterable[String])]) = {
 
-    // cut exons out of the reference sequence
-    val exonSequence = cutOutExons(reference, transcripts)
-
-    // given all the transcripts, find the equivalence classes
-    val (equivalenceClasses,
-      exonToClassMap) = findEquivalenceClasses(transcripts)
-
-    // cut all equivalence classes into kmers
-    val classKmers = cutClassesIntoKmers(exonSequence,
-      exonToClassMap,
-      kmerLength)
-
-    // reverse mapping (i.e., get kmer to class mapping)
-    val kmersToClasses = reverseClassMapping(classKmers)
-
-    (kmersToClasses, classKmers)
+    findEquivalenceClasses(transcripts, kmerLength, referenceFile)
   }
 
+
   /**
-   * Given a set of transcripts and reference contigs, this method cuts out the
-   * nucleotide strings that correspond to exons. It then returns an RDD of tuples
-   * containing exon descriptors and nucleotide strings.
+   * Given a transcript, length and 2BitFile, this method extracts kmers of the specified 
+   * length from the transcript
    *
-   * @param contigs An RDD of reference contigs.
-   * @param transcripts An RDD of transcripts.
-   * @return Returns an RDD of exon ID/nucleotide string tuples.
+   *@param transcript A Transcript object
+   *@param kmerLength The length of kmers to extract
+   *@param referenceFile The ReferenceFile representing the chromosome
+   *@return Returns a list of kmers contained in Transcript
+   *
    */
-  private[quantification] def cutOutExons(contigs: RDD[NucleotideContigFragment],
-                                          transcripts: RDD[Transcript]): RDD[(String, String)] = {
-    ???
+  private[quantification] def extractKmers(transcript: Transcript,
+                                           kmerLength: Int, 
+                                           referenceFile: ReferenceFile): Iterable[String] = {
+    referenceFile.extract(transcript.region).sliding(kmerLength).toIterable
   }
 
   /**
@@ -89,44 +79,33 @@ object Index extends Serializable with Logging {
    * a list of transcripts, and the other maps exon IDs to equivalence class IDs.
    *
    * @param transcripts An RDD of transcripts.
+   * @param kmerLength The length of kmers to calssify by
+   * @param referenceFile The ReferenceFile representing the chromosome
    * @return Returns two RDDs: one maps equivalence class IDs to a list of transcripts,
    *         and the other maps exon IDs to equivalence class IDs.
    */
-  private[quantification] def findEquivalenceClasses(transcripts: RDD[Transcript]): (RDD[(Long, Iterable[String])], RDD[(String, Long)]) = {
-    ???
+  private[quantification] def findEquivalenceClasses(transcripts: RDD[Transcript],
+                                                     kmerLength: Int,
+                                                     referenceFile: ReferenceFile): (RDD[(String, Long)], RDD[(Long, Iterable[String])]) = {
+    // Broadcast variable representing the reference file:
+    val refFile = transcripts.context.broadcast(referenceFile)
+
+    // RDD of (list of kmers in eq class, equivalence class ID)
+    val kmersToClasses = transcripts.flatMap(t => {for(k <- extractKmers(t, kmerLength, refFile.value)) 
+                                                  yield ((t.id, k), 1)} )                       // ((t.id, kmer), 1)
+                                    .foldByKey(0)(_+_)                                          // ((t,id, kmer), abundance)
+                                    .map(v => ((v._1._1, v._2), v._1._2))                       // ((t.id, abundance), kmer)
+                                    .groupByKey()                                               // ((t.id, abundance), all kmers with same pattern) = (eq class, all kmers in class)
+                                    .map(v => v._2)                                             // (kmers in eq class)
+                                    .zipWithIndex()                                             // (kmers in eq class, class ID)
+
+    // RDD of (kmer, equivalence class ID)
+    val kmerToClassID = kmersToClasses.flatMap(v => {for(k <- v._1) yield (k, v._2)})           // (kmer, class ID)
+
+    // RDD of (equivalence class ID, list of kmers)
+    val idsToKmers = kmersToClasses.map(v => (v._2, v._1))                                      // (class ID, list of kmers)
+
+    (kmerToClassID, idsToKmers)
   }
 
-  /**
-   * Given a list of exon IDs and the sequences of those exons, a mapping between exon IDs and
-   * equivalence classes, and a k-mer length, this method returns all k-mers which belong to
-   * all equivalence classes.
-   *
-   * @param exonSequence An RDD containing tuples with exon IDs and exon sequences.
-   * @param exonToClassMap An RDD containing tuples that map exon IDs to equivalence classes.
-   * @param kmerLength The length _k_ to use for our k-mers.
-   * @return Returns an RDD of tuples where each tuple represents an equivalence class and
-   *         its k-mers.
-   *
-   * @see reverseClassMapping
-   */
-  private[quantification] def cutClassesIntoKmers(exonSequence: RDD[(String, String)],
-                                                  exonToClassMap: RDD[(String, Long)],
-                                                  kmerLength: Int): RDD[(Long, Iterable[String])] = {
-    ???
-  }
-
-  /**
-   * This method reverses the k-mer class mapping given by the k-mer generation process. Specifically, it
-   * takes an RDD which contains the equivalence class ID and an iterator across all k-mers in that
-   * equivalence class, and returns an RDD which maps k-mer strings to equivalence class IDs.
-   *
-   * @param classesAndKmers An RDD of tuples where each tuple maps an equivalence class ID to an
-   *                        iterable which contains the k-mers that belong to the equivalence class.
-   * @return An RDD which maps k-mer strings to equivalence class IDs.
-   *
-   * @see cutClassesIntoKmers
-   */
-  private[quantification] def reverseClassMapping(classesAndKmers: RDD[(Long, Iterable[String])]): RDD[(String, Long)] = {
-    ???
-  }
 }

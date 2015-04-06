@@ -24,6 +24,18 @@ import org.bdgenomics.RNAdam.utils.{ ReadGenerator, TranscriptGenerator }
 import scala.collection.Map
 import scala.collection.immutable.HashMap
 import scala.math.abs
+import org.bdgenomics.adam.util.ReferenceFile
+import org.bdgenomics.adam.util.{TwoBitFile}
+import org.bdgenomics.utils.parquet.io.{ ByteAccess, ByteArrayByteAccess }
+
+class TestingTwoBitFile(byteAccess: ByteAccess) extends ReferenceFile with Serializable {
+    // Test sequence, len = 24
+    val testSeq = "CAATCCTTCGCCGCAGTGCA"
+    override def extract(region: ReferenceRegion): String = {
+      testSeq.substring(region.start.toInt, region.end.toInt)
+    }
+}
+
 
 class QuantifySuite extends RNAdamFunSuite {
 
@@ -410,6 +422,66 @@ class QuantifySuite extends RNAdamFunSuite {
     assert(fpEquals(relativeAbundances("3"), 0.2, 0.05))
     assert(fpEquals(relativeAbundances("4"), 0.1, 0.05))
     assert(fpEquals(relativeAbundances("5"), 0.1, 0.05))
+  }
+
+
+  sparkTest("Test of TestingTwoBitFile") {
+    val region1 = ReferenceRegion("region1", 0L, 10L)
+    val tbf = new TestingTwoBitFile(new ByteArrayByteAccess(new Array[Byte](1)))
+    assert(tbf.extract(region1) == "CAATCCTTCG")
+  }
+
+  sparkTest("Test of Index") {
+    // Takes a set of transcripts and a twobitfile and a kmer length, then returns a tuple: (kmers -> eq classes, eq class -> iterable of member kmers)
+ 
+    val region1 = ReferenceRegion("region1", 0L, 10L)
+    val exon1 = Exon("exon1", "transcript1", true, region1)
+    val transcript1 = Transcript("transcript1", Seq("transcript1"), "gene1", true, Iterable(exon1), Iterable(), Iterable())
+      
+    val region2 = ReferenceRegion("region2", 11L, 20L)
+    val exon2 = Exon("exon2", "transcript2", true, region2)
+    val transcript2 = Transcript("transcript2", Seq("transcript2"), "gene1", true, Iterable(exon2), Iterable(), Iterable())
+    
+    val transcripts = sc.parallelize(Seq(transcript1, transcript2))
+    
+    val tbfile = new TestingTwoBitFile(new ByteArrayByteAccess(new Array[Byte](1)))
+
+    // List of ( ... (kmer, class id) ... ) AND (... (id, list of kmers) ...) 
+    var (kmersToEq, eqToKmers) = Index.apply(tbfile, transcripts, 5)
+
+    val kToEq = kmersToEq.collect()
+    val eqToK = eqToKmers.collect()
+
+
+    // Tracking 3 particular kmers: "CAATC", "GTGCA", "CTTCG"
+    // Should be at least 2 eq classes, such that one contains both "CAATC" and "CTTCG", while the ther contains "GTGCA"
+    val CAATCtoClassArray = kToEq.filter(_._1 == "CAATC")
+    assert(CAATCtoClassArray.length == 1) // There should only be one instance of each kmer
+    val CAATCtoClass = CAATCtoClassArray(0)
+
+    val GTGCAtoClassArray = kToEq.filter(_._1 == "GTGCA")
+    assert(GTGCAtoClassArray.length == 1)
+    val GTGCAtoClass = GTGCAtoClassArray(0)
+
+    val CTTCGtoClassArray = kToEq.filter(_._1 == "CTTCG")
+    assert(CTTCGtoClassArray.length == 1)
+    val CTTCGtoClass = CTTCGtoClassArray(0)
+
+    var class1 = CAATCtoClass._2
+    var class2 = GTGCAtoClass._2
+    var class3 = CTTCGtoClass._2
+    assert(class1 != class2)
+    assert(class1 == class3)
+
+    var class1Kmers = eqToK.filter(_._1 == class1)(0)
+    assert(class1Kmers._2.toList.contains("CAATC"))
+    assert(class1Kmers._2.toList.contains("CTTCG"))
+    assert(!class1Kmers._2.toList.contains("GTGCA"))
+
+    var class2Kmers = eqToK.filter(_._1 == class2)(0)
+    assert(class2Kmers._2.toList.contains("GTGCA"))
+    assert(!class2Kmers._2.toList.contains("CAATC"))
+    assert(!class2Kmers._2.toList.contains("CTTCG"))
   }
 
   sparkTest("quantify a small set of more realistic but unbiased transcripts") {
