@@ -17,17 +17,18 @@
  */
 package org.bdgenomics.rice.cli
 
-import java.io.File
+import java.io.{ File, ObjectOutputStream, FileOutputStream }
 import org.apache.spark.{ Logging, SparkContext }
 import org.apache.spark.rdd.MetricsContext._
 import org.bdgenomics.adam.rdd.ADAMContext._
-import org.bdgenomics.adam.util.{ TwoBitFile, ReferenceFile }
 import org.bdgenomics.rice.Timers._
 import org.bdgenomics.rice.algorithms.{ Index => Indexer }
 import org.bdgenomics.rice.avro._
 import org.bdgenomics.utils.cli._
-import org.bdgenomics.utils.io.{ LocalFileByteAccess }
+import org.bdgenomics.utils.io.LocalFileByteAccess
 import org.kohsuke.args4j.{ Argument, Option => Args4jOption }
+import net.fnothaft.ananas.models.ContigFragment
+import net.fnothaft.ananas.debruijn.ColoredDeBruijnGraph
 
 object Index extends BDGCommandCompanion {
   val commandName = "index"
@@ -45,10 +46,7 @@ class IndexArgs extends Args4jBase {
   @Argument(required = true, metaVar = "GENES", usage = "The gene description file to use.", index = 1)
   var genes: String = null
 
-  @Argument(required = true, metaVar = "KMER_LENGTH", usage = "The k-mer length to use for indexing.", index = 2)
-  var kmerLength: Int = 0
-
-  @Argument(required = true, metaVar = "OUTPUT", usage = "The location to write the index to.", index = 3)
+  @Argument(required = true, metaVar = "OUTPUT", usage = "The location to write the index to.", index = 2)
   var output: String = null
 }
 
@@ -56,40 +54,41 @@ class Index(protected val args: IndexArgs) extends BDGSparkCommand[IndexArgs] wi
   val companion = Index
 
   def run(sc: SparkContext) {
-    // load genome
-    val genome = LoadingTwoBit.time {
-      new TwoBitFile(new LocalFileByteAccess(new File(args.genome)))
+    // load gene annotations and transform to contig fragments
+    val contigFragments = LoadingContigs.time {
+      ContigFragment.loadFromFile(sc, args.genome)
     }
 
     // load gene annotations and transform to transcripts
-    val transcripts = LoadingGenes.time {
+    val transcripts = LoadingTranscripts.time {
       sc.loadGenes(args.genes)
         .flatMap(_.transcripts)
         .instrument()
     }
 
     // run indexing
-    val (kmerMap, classMap) = Indexing.time {
-      Indexer(genome, transcripts, args.kmerLength)
+    val mappings = Indexing.time {
+      Indexer(contigFragments, transcripts)
     }
 
-    // map to avro classes and save indices
-    SavingKmers.time {
-      kmerMap.map(kv => {
-        KmerToClass.newBuilder()
-          .setKmer(kv._1)
-          .setEquivalenceClass(kv._2)
-          .build()
-      }).adamParquetSave(args.output + "_kmers")
+    // save index
+    Saving.time {
+      naiveSaveToFile(args.output + "_kmap", mappings._1)
+      naiveSaveToFile(args.output + "_tmap", mappings._2)
     }
 
-    SavingClasses.time {
-      classMap.map(kv => {
-        ClassContents.newBuilder()
-          .setEquivalenceClass(kv._1)
-          .setKmers(kv._2.toList)
-          .build()
-      }).adamParquetSave(args.output + "_classes")
-    }
   }
+
+  /**
+   * Save a map to disk using built in Java Serialization
+   *
+   * @param filename The name of the file to write to
+   * @param item The Map to serialize
+   */
+  private def naiveSaveToFile(filename: String, item: Any) {
+    val out = new ObjectOutputStream(new FileOutputStream(filename))
+    out.writeObject(item)
+    out.close()
+  }
+
 }

@@ -17,14 +17,14 @@
   <name>rice: an ADAM-based RNA-seq quantification pipeline</name>
 
   <properties>
-    <adam.version>0.17.0</adam.version>
+    <adam.version>0.17.1</adam.version>
     <avro.version>1.7.6</avro.version>
     <hadoop.version>2.2.0</hadoop.version>
     <java.version>1.7</java.version>
-    <parquet.version>1.7.0</parquet.version>
-    <spark.version>1.2.1</spark.version>
+    <parquet.version>1.8.1</parquet.version>
+    <spark.version>1.4.1</spark.version>
     <!-- Edit the following line to configure the Hadoop (HDFS) version. -->
-    <utils.version>0.2.2</utils.version>
+    <utils.version>0.2.3</utils.version>
   </properties>
 
   <modules>
@@ -229,6 +229,21 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
+        <groupId>net.fnothaft</groupId>
+        <artifactId>ananas</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <exclusions>
+          <exclusion>
+            <groupId>org.bdgenomics.adam</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.bdgenomics.utils</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+      <dependency>
         <groupId>org.apache.parquet</groupId>
         <artifactId>parquet-avro</artifactId>
         <version>${parquet.version}</version>
@@ -340,9 +355,30 @@
         <scope>provided</scope>
       </dependency>
       <dependency>
+        <groupId>org.apache.spark</groupId>
+        <artifactId>spark-graphx_2.10</artifactId>
+        <version>${spark.version}</version>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
         <groupId>org.jblas</groupId>
         <artifactId>jblas</artifactId>
         <version>1.2.3</version>
+      </dependency>
+      <dependency>
+        <groupId>net.fnothaft</groupId>
+        <artifactId>ananas</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <exclusions>
+         <exclusion>
+           <groupId>org.bdgenomics.utils</groupId>
+           <artifactId>*</artifactId>
+         </exclusion>
+         <exclusion>
+           <groupId>org.bdgenomics.adam</groupId>
+           <artifactId>*</artifactId>
+         </exclusion>
+       </exclusions>
       </dependency>
     </dependencies>
   </dependencyManagement>

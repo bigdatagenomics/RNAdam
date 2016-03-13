@@ -53,9 +53,9 @@ fi
   --conf spark.kryo.registrator=org.bdgenomics.adam.serialization.ADAMKryoRegistrator \
   --conf spark.kryoserializer.buffer.mb=4 \
   --conf spark.kryo.referenceTracking=true \
-  --conf spark.executor.memory=${RICE_EXECUTOR_MEMORY:-4g} \
+  --conf spark.executor.memory=${RICE_EXECUTOR_MEMORY:-200g} \
   ${RICE_OPTS:- } \
-  --driver-memory ${RICE_DRIVER_MEMORY:-4g} \
+  --driver-memory ${RICE_DRIVER_MEMORY:-200g} \
   --jars "$RICE_JARS" \
   "$RICE_CLI_JAR" \
   "$@"

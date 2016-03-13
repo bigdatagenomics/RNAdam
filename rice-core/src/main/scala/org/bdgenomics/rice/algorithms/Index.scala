@@ -21,94 +21,106 @@ import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext._
 import org.bdgenomics.adam.rdd.ADAMContext._
+import org.bdgenomics.adam.models.Transcript
 import org.bdgenomics.formats.avro.NucleotideContigFragment
-import org.bdgenomics.adam.models.{ Exon, Transcript }
 import org.bdgenomics.rice.Timers._
-import org.bdgenomics.adam.util.{ TwoBitFile, ReferenceFile }
-import scala.util.hashing.MurmurHash3
+import org.apache.spark.graphx.Graph
+import net.fnothaft.ananas.debruijn.{ ColoredDeBruijnGraph, ColoredKmerVertex }
+import net.fnothaft.ananas.models.ContigFragment
 
 object Index extends Serializable with Logging {
 
   /**
-   * Computes an index, given a reference sequence, a set of transcripts, and a k-mer
-   * length. An index provides bidirectional mappings between k-mers and equivalence classes.
+   * Computes an index, given a set of Nucleotide Contig Fragments. An index provides a mapping 
+   * from kmers to the transcripts they are found in 
    *
-   * This code is based on the implementation of Sailfish, which is described in:
-   *
-   * Patro, Rob, Stephen M. Mount, and Carl Kingsford. "Sailfish: alignment-free isoform
-   * quantification from RNA-seq reads using lightweight algorithms." arXiv preprint arXiv:1308.3700 (2013).
-   *
-   * and:
-   *
-   * Patro, Rob, Stephen M. Mount, and Carl Kingsford. "Sailfish enables alignment-free
-   * isoform quantification from RNA-seq reads using lightweight algorithms." Nature biotechnology 32.5 (2014): 462-464.
-   *
-   * @param referenceFile A ReferenceFile representing the chromosome
-   * @param transcripts An RDD containing transcripts.
-   * @param kmerLength The length _k_ of the k-mers for us to index.
-   * @return Returns a tuple containing two RDDs: the first RDD maps k-mers to equivalence class
-   *         IDs, the second maps equivalence class IDs to an iterable of member k-mers.
+   * @param contigFragments An RDD containing contigFragments.
+   * @param transcripts An RDD containing transcripts
+   * @return Returns two mappings representing the Index of a sequence.
    */
-  def apply(referenceFile: ReferenceFile,
-            transcripts: RDD[Transcript],
-            kmerLength: Int): (RDD[(String, Long)], RDD[(Long, Iterable[String])]) = {
+  def apply(contigFragments: RDD[ContigFragment], transcripts: RDD[Transcript]): (Map[(Long, Boolean), Map[String, Long]], Map[String, Transcript]) = {
 
-    findEquivalenceClasses(transcripts, kmerLength, referenceFile)
+    val graph = createGraph(contigFragments)
+    val vertexMapping = computeVertexMapping(graph)
+    val transcriptMapping = computeTranscriptMapping(transcripts)
+    (vertexMapping, transcriptMapping)
   }
 
   /**
-   * Given an RDD of transcripts, this method finds the k-mer equivalence classes. K-mer
-   * equivalence classes represent k-mers that show up with equal abundance across several
-   * transcripts---in our method, we simplify by just looking for exons that occur across
-   * several transcripts. This method returns two RDDs: one maps equivalence class IDs to
-   * a list of transcripts, and the other maps exon IDs to equivalence class IDs.
+   * Creates a colored de bruijn graph, given a set of Nucleotide Contig Fragments.
    *
-   * @param transcripts An RDD of transcripts.
-   * @param kmerLength The length of kmers to calssify by
-   * @param referenceFile The ReferenceFile representing the chromosome
-   * @return Returns two RDDs: one maps equivalence class IDs to a list of transcripts,
-   *         and the other maps exon IDs to equivalence class IDs.
+   * @param contigFragments An RDD containing contigFragments.
+   * @return Returns a Graph representing a colored De Bruijn graph of kmers
    */
-  private[algorithms] def findEquivalenceClasses(transcripts: RDD[Transcript],
-                                                 kmerLength: Int,
-                                                 referenceFile: ReferenceFile): (RDD[(String, Long)], RDD[(Long, Iterable[String])]) = {
-    // Broadcast variable representing the reference file:
-    val refFile = Broadcast.time {
-      transcripts.context.broadcast(referenceFile)
-    }
+  def createGraph(contigFragments: RDD[ContigFragment]): Graph[ColoredKmerVertex, Unit] = {
 
-    // RDD of (list of kmers in eq class, equivalence class ID)
-    val kmersToClasses = GenerateClasses.time {
-      val kmersAndTranscript = KmersAndTranscript.time {
-        transcripts.flatMap(t => {
-          val sequence = Extract.time {
-            refFile.value.extract(t.region)
-          }
-          val kmers = SplitKmers.time {
-            sequence.sliding(kmerLength).toIterable
-          }
-          kmers.map(k => ((t.id, k), 1))
-        })
-      }
-
-      val kmersByCount = CollectingKmersByCount.time { kmersAndTranscript.reduceByKey(_ + _) }
-      val sortByTranscript = SortByTranscript.time { kmersByCount.map(v => ((v._1._1, v._2), v._1._2)) }
-      val kmersByTranscript = CollectingKmersByTranscript.time { sortByTranscript.groupByKey() }
-      val eqClasses = DistillingEqClasses.time { kmersByTranscript.map(v => v._2) }
-      val numberedEqClasses = NumberingEqClasses.time { eqClasses.zipWithUniqueId() }
-      numberedEqClasses
-    }
-
-    GenerateIndices.time {
-      // RDD of (kmer, equivalence class ID)
-      val kmerToClassID = kmersToClasses.flatMap(v => {
-        v._1.map((_, v._2))
-      })
-
-      // RDD of (equivalence class ID, list of kmers)
-      val idsToKmers = kmersToClasses.map(v => (v._2, v._1))
-
-      (kmerToClassID, idsToKmers)
+    ContigsToGraph.time {
+      ColoredDeBruijnGraph.buildFromFragments(contigFragments)
     }
   }
+
+  /**
+   * Creates a mapping between kmers and the set of transcripts they appear in.
+   *
+   * @param graph A colored de bruijn graph representing kmers read from transcripts
+   * @return Returns a Mapping from kmers to transcripts and the abundance of kmers in the transcripts
+   */
+  def computeVertexMapping(graph: Graph[ColoredKmerVertex, Unit]): Map[(Long, Boolean), Map[String, Long]] = {
+
+    VertexMapping.time {
+
+      // Convert each kmer in the graph into the tuple ( (kmerID, canonicality, transcriptItCameFrom) , 1 )
+      val kmers: RDD[((Long, Boolean, String), Long)] = graph.vertices                        
+        .flatMap(v => {
+          // Grab forward kmers if they exist
+          val forward = if (v._2.forwardTerminals.nonEmpty || v._2.forwardStronglyConnected.nonEmpty) {
+            v._2.forwardTerminals.toList.map(t => ((v._1, true, t._1), 1L)) ++
+              v._2.forwardStronglyConnected.toList.map(t => ((v._1, true, t._1._1), 1L))
+          } else {
+            Seq.empty
+          }
+          // Grab reverse kmers if they exist
+          val reverse = if (v._2.reverseTerminals.nonEmpty || v._2.reverseStronglyConnected.nonEmpty) {
+            v._2.reverseTerminals.toList.map(t => ((v._1, false, t._1), 1L)) ++
+              v._2.reverseStronglyConnected.toList.map(t => ((v._1, false, t._1._1), 1L))
+          } else {
+            Seq.empty
+          }
+
+          // Combine foward and reverse
+          forward ++ reverse
+        }) 
+
+      // Count the number of instances of each (kmerID, canonicality, transcriptItCameFrom) via reducing.
+      val counts: RDD[((Long, Boolean), (String, Long))] = kmers.reduceByKey(_ + _)
+
+      // Reorder the tuples into ( (kmerID, canonicality) , (transcriptItCameFrom, count) )
+      val reordered = counts.map( q => {
+          val ((hash, strand, transcript), number) = q
+          ((hash, strand), (transcript, number))
+        })
+
+      // Collect all (kmerID, canonicality) by putting all associated (transcriptItCameFrom, count) into a map
+      val collected: RDD[((Long, Boolean), Map[String, Long])] = reordered.combineByKey( v => 
+          Map(v),
+          (c, v) => c + v,
+          (c1, c2) => c1 ++ c2 
+        ) 
+
+      // Convert the resulting rdd into a map from (kmerID, canonicality) => (transcriptItCameFrom, count)
+      collected.collectAsMap().toMap 
+
+    }
+  }
+
+  /**
+   * Creates a Mapping between transcript IDs and Transcripts
+   *
+   * @param transcripts RDD of Transcripts
+   * @return Returns a mapping between transcript IDs and transcript objects
+   */
+  def computeTranscriptMapping(transcripts: RDD[Transcript]): Map[String, Transcript] = {
+    transcripts.map(t => (t.id, t)).collect().toMap
+  }
+
 }

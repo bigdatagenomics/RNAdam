@@ -15,14 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.bdgenomics.rice.utils
+package org.bdgenomics.rice.algorithms.alignment
 
-import org.bdgenomics.utils.misc.SparkFunSuite
+import net.fnothaft.ananas.models.CanonicalKmer
+import org.bdgenomics.rice.models.KmerIndex
 
-trait riceFunSuite extends SparkFunSuite {
+trait AlignmentModel extends Serializable {
 
-  override val appName: String = "rice"
-  override val properties: Map[String, String] = Map(("spark.serializer", "org.apache.spark.serializer.KryoSerializer"),
-    ("spark.kryo.registrator", "org.bdgenomics.adam.serialization.ADAMKryoRegistrator"))
+  /**
+   * Given a read, returns (transcript, likelihood) pairs.
+   */
+  def processRead(iter: Iterator[CanonicalKmer],
+                  kmerIndex: KmerIndex): Map[String, Double]
 }
-
