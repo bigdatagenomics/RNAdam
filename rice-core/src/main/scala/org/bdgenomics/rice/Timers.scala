@@ -25,26 +25,14 @@ import org.bdgenomics.utils.instrumentation.Metrics
 private[rice] object Timers extends Metrics {
 
   // CLI
-  val LoadingTwoBit = timer("Loading Two Bit File")
-  val LoadingGenes = timer("Loading gene descriptions")
+  val LoadingContigs = timer("Loading Contig Fragments")
+  val LoadingTranscripts = timer("Loading Transcripts")
   val Indexing = timer("Indexing k-mers")
-  val SavingKmers = timer("Saving index - kmer map")
-  val SavingClasses = timer("Saving index - class map")
+  val Saving = timer("Saving Index to disk")
 
   // Indexing
-  val Broadcast = timer("Broadcasting Reference File")
-  val Extract = timer("Extracting Transcript from Reference")
-  val SplitKmers = timer("Splitting k-mers from Transcript")
-  val GenerateClasses = timer("Generating Equivalence Classes")
-  val GenerateIndices = timer("Mapping Equivalence Classes to Indices")
-
-  // Additional Indexing Timers
-  val KmersAndTranscript = timer("Sorting Kmers By Transcript")
-  val CollectingKmersByCount = timer("Collecting kmers by count (ReduceByKey)")
-  val SortByTranscript = timer("Sorting kmers by transcript (Map)")
-  val CollectingKmersByTranscript = timer("Collecting kmers by transcript (GroupByKey)")
-  val DistillingEqClasses = timer("Mapping collected groups into equivalence classes")
-  val NumberingEqClasses = timer("Numbering equivalence classes")
+  val ContigsToGraph = timer("Converting to DeBruijnGraph")
+  val VertexMapping = timer("Creating a map of kmers to counts")
 
   // Quantification
   val ExtractTranscriptLengths = timer("Extraction Transcript Lengths")

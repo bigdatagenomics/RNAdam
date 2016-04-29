@@ -15,14 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.bdgenomics.rice.utils
+package org.bdgenomics.rice.algorithms
 
-import org.bdgenomics.utils.misc.SparkFunSuite
+import org.apache.spark.Logging
+import org.apache.spark.rdd.RDD
+import org.bdgenomics.formats.avro.AlignmentRecord
+import org.bdgenomics.rice.algorithms.alignment.AlignmentModel
+import org.bdgenomics.rice.models.KmerIndex
+import net.fnothaft.ananas.models.IntMer
 
-trait riceFunSuite extends SparkFunSuite {
+object Mapper extends Serializable with Logging {
 
-  override val appName: String = "rice"
-  override val properties: Map[String, String] = Map(("spark.serializer", "org.apache.spark.serializer.KryoSerializer"),
-    ("spark.kryo.registrator", "org.bdgenomics.adam.serialization.ADAMKryoRegistrator"))
+  def apply(reads: RDD[AlignmentRecord],
+            kmerIndex: KmerIndex,
+            likelihoodModel: AlignmentModel): RDD[(Long, Map[String, Double])] = {
+
+    reads.zipWithUniqueId() // RDD[ read, readID ]
+      .map(r => (r._2, likelihoodModel.processRead(IntMer.fromSequence(r._1.sequence).toIterator, kmerIndex))) // RDD[ readID, Map[color -> likelihood] ] 
+  }
 }
-
