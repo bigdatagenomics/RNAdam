@@ -100,6 +100,10 @@
 
   <dependencies>
     <dependency>
+      <groupId>net.fnothaft</groupId>
+      <artifactId>ananas</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.bdgenomics.utils</groupId>
       <artifactId>utils-misc_2.10</artifactId>
       <type>test-jar</type>
@@ -135,6 +139,10 @@
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-mllib_2.10</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-graphx_2.10</artifactId>
     </dependency>
     <dependency>
       <groupId>org.scalatest</groupId>

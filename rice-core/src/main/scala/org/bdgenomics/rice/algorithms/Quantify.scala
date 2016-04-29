@@ -24,106 +24,15 @@ import org.bdgenomics.adam.rdd.ADAMContext._
 import org.bdgenomics.formats.avro.AlignmentRecord
 import org.bdgenomics.adam.models.Transcript
 import org.bdgenomics.rice.Timers._
+import org.bdgenomics.rice.models._
 
 object Quantify extends Serializable with Logging {
 
-  /**
-   *
-   * This code is based on the implementation of Sailfish, which is described in:
-   *
-   * Patro, Rob, Stephen M. Mount, and Carl Kingsford. "Sailfish: alignment-free isoform
-   * quantification from RNA-seq reads using lightweight algorithms." arXiv preprint arXiv:1308.3700 (2013).
-   *
-   * and:
-   *
-   * Patro, Rob, Stephen M. Mount, and Carl Kingsford. "Sailfish enables alignment-free
-   * isoform quantification from RNA-seq reads using lightweight algorithms." Nature biotechnology 32.5 (2014): 462-464.
-   */
   def apply(reads: RDD[AlignmentRecord],
-            kmerToEquivalenceClass: RDD[(String, Long)],
-            equivalenceClassToTranscript: RDD[(Long, Iterable[String])],
-            transcripts: RDD[Transcript],
-            kmerLength: Int,
-            maxIterations: Int,
-            calibrateKmerBias: Boolean = true,
-            calibrateLengthBias: Boolean = true): RDD[(Transcript, Double)] = {
-
-    // cache transcripts, then compute transcript lengths
-    transcripts.cache()
-    val tLen = ExtractTranscriptLengths.time {
-      extractTranscriptLengths(transcripts)
-    }
-
-    // cut reads into kmers and then calibrate if desired
-    val readKmers = CountKmers.time {
-      reads.adamCountKmers(kmerLength)
-    }
-    val calibratedKmers = if (calibrateKmerBias) {
-      TareKmers.time {
-        Tare.calibrateKmers(readKmers)
-      }
-    } else {
-      readKmers
-    }
-
-    // map kmer counts into equivalence classes
-    val equivalenceClassCounts = CountEquivalenceClasses.time {
-      mapKmersToClasses(calibratedKmers, kmerToEquivalenceClass)
-    }
-
-    // Cache the RDD equivalenceClassCounts so that it is not computed twice.
-    equivalenceClassCounts.cache()
-
-    // The relative number of kmers in each equivalence class.
-    // This is needed by the maximization step of the EM algorithm below
-    val relNumKmersInEC = NormalizingCounts.time {
-      // The total of all the equivalence class counts.
-      // Should be equal to the number of kmers.
-      val numKmers: Long = equivalenceClassCounts.map(kv => kv._2).reduce(_ + _)
-
-      equivalenceClassCounts.map((ec: (Long, Long)) => {
-        (ec._1, ec._2.toDouble / numKmers)
-      }).collectAsMap
-    }
-
-    // we initialize the alphas by splitting all counts equally across transcripts
-    var (alpha, muHat) = InitializingEM.time {
-      var alpha_ = InitializingCounts.time {
-        initializeEM(equivalenceClassCounts,
-          equivalenceClassToTranscript)
-      }
-
-      // we initialize the µ-hat by running a first step of the M algorithm
-      var muHat_ = InitializingMu.time {
-        m(alpha_, tLen, kmerLength, relNumKmersInEC)
-      }
-
-      (alpha_, muHat_)
-    }
-
-    // run iterations of the em algorithm
-    (0 until maxIterations).foreach(i => RunningEMIter.time {
-      log.info("On iteration " + i + " of EM algorithm.")
-
-      alpha = EStage.time {
-        e(muHat)
-      }
-      muHat = MStage.time {
-        m(alpha, tLen, kmerLength, relNumKmersInEC)
-      }
-    })
-
-    // perform calibration to correct for transcript length bias, if desired
-    if (calibrateLengthBias) {
-      CalibratingForLength.time {
-        muHat = Tare.calibrateTxLenBias(muHat, tLen)
-      }
-    }
-
-    // join transcripts up and return
-    JoiningAgainstTranscripts.time {
-      joinTranscripts(transcripts, muHat)
-    }
+            kmerIndex: KmerIndex,
+            transcriptIndex: Map[String, Transcript],
+            maxIterations: Int): RDD[(Transcript, Double)] = {
+    ???
   }
 
   /**

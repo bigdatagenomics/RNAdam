@@ -172,6 +172,10 @@
       <artifactId>spark-mllib_2.10</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-graphx_2.10</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_2.10</artifactId>
       <scope>test</scope>
@@ -179,6 +183,11 @@
     <dependency>
       <groupId>org.jblas</groupId>
       <artifactId>jblas</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>net.fnothaft</groupId>
+      <artifactId>ananas</artifactId>
+      <version>0.0.1-SNAPSHOT</version>
     </dependency>
   </dependencies>
 </project>

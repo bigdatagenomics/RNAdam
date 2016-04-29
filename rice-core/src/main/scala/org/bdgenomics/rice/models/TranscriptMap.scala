@@ -15,14 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.bdgenomics.rice.utils
+package org.bdgenomics.rice.models
 
-import org.bdgenomics.utils.misc.SparkFunSuite
+import org.bdgenomics.adam.models.Transcript
+import java.io.{ ObjectInputStream, FileInputStream }
 
-trait riceFunSuite extends SparkFunSuite {
+object TranscriptMap {
 
-  override val appName: String = "rice"
-  override val properties: Map[String, String] = Map(("spark.serializer", "org.apache.spark.serializer.KryoSerializer"),
-    ("spark.kryo.registrator", "org.bdgenomics.adam.serialization.ADAMKryoRegistrator"))
+  /**
+   * Loads a map of transcripts from disk.
+   */
+  def apply(filepath: String): Map[String, Transcript] = {
+    val in = new ObjectInputStream(new FileInputStream(filepath))
+    val mapping = in.readObject().asInstanceOf[Map[String, Transcript]]
+    in.close()
+    mapping
+  }
 }
 
