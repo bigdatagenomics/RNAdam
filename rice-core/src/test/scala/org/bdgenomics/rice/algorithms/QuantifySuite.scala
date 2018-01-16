@@ -18,7 +18,13 @@
 package org.bdgenomics.rice.algorithms
 
 import org.apache.spark.rdd.RDD
-import org.bdgenomics.adam.models.{ Exon, ReferenceRegion, Transcript }
+import org.bdgenomics.adam.models.{
+  RecordGroupDictionary,
+  ReferenceRegion,
+  SequenceDictionary
+}
+import org.bdgenomics.adam.rdd.read.AlignmentRecordRDD
+import org.bdgenomics.rice.models.{ Exon, Transcript }
 import org.bdgenomics.rice.utils.riceFunSuite
 import org.bdgenomics.rice.utils.{ ReadGenerator, TranscriptGenerator }
 import scala.collection.Map
@@ -33,6 +39,9 @@ class TestingTwoBitFile(byteAccess: ByteAccess) extends ReferenceFile with Seria
   val testSeq = "CAATCCTTCGCCGCAGTGCA"
   override def extract(region: ReferenceRegion): String = {
     testSeq.substring(region.start.toInt, region.end.toInt)
+  }
+  override def sequences: SequenceDictionary = {
+    SequenceDictionary.empty
   }
 }
 
@@ -394,7 +403,8 @@ class QuantifySuite extends riceFunSuite {
     val reads = ReadGenerator(transcripts, Seq(0.2, 0.1, 0.3, 0.2, 0.1, 0.1), 10000, 75, Some(4321L))
 
     // run quantification
-    val relativeAbundances = Quantify(sc.parallelize(reads),
+    val relativeAbundances = Quantify(
+      AlignmentRecordRDD(sc.parallelize(reads), SequenceDictionary.empty, RecordGroupDictionary.empty, Seq.empty),
       sc.parallelize(kmerMap.toSeq),
       sc.parallelize(classMap.toSeq),
       sc.parallelize(names.zip(tLen).map(p => Transcript(p._1,
@@ -512,7 +522,8 @@ class QuantifySuite extends riceFunSuite {
       Some(5000L))
 
     // run quantification
-    val relativeAbundances = Quantify(sc.parallelize(reads),
+    val relativeAbundances = Quantify(
+      AlignmentRecordRDD(sc.parallelize(reads), SequenceDictionary.empty, RecordGroupDictionary.empty, Seq.empty),
       sc.parallelize(kmerMap.toSeq),
       sc.parallelize(classMap.toSeq),
       sc.parallelize(names.zip(tLen).map(p => Transcript(p._1,
@@ -557,7 +568,8 @@ class QuantifySuite extends riceFunSuite {
     val reads = ReadGenerator(transcripts, Seq(0.2, 0.1, 0.3, 0.2, 0.1, 0.1), 10000, 75, Some(4321L))
 
     // run quantification
-    val relativeAbundances = Quantify(sc.parallelize(reads),
+    val relativeAbundances = Quantify(
+      AlignmentRecordRDD(sc.parallelize(reads), SequenceDictionary.empty, RecordGroupDictionary.empty, Seq.empty),
       sc.parallelize(kmerMap.toSeq),
       sc.parallelize(classMap.toSeq),
       sc.parallelize(names.zip(tLen).map(p => Transcript(p._1,
@@ -600,7 +612,8 @@ class QuantifySuite extends riceFunSuite {
     val reads = ReadGenerator(transcripts, tLen.map(x => x / totLen), 10000, 75, Some(4321L))
 
     // run quantification
-    val relativeAbundances = Quantify(sc.parallelize(reads),
+    val relativeAbundances = Quantify(
+      AlignmentRecordRDD(sc.parallelize(reads), SequenceDictionary.empty, RecordGroupDictionary.empty, Seq.empty),
       sc.parallelize(kmerMap.toSeq),
       sc.parallelize(classMap.toSeq),
       sc.parallelize(names.zip(tLen).map(p => Transcript(p._1,
@@ -643,7 +656,8 @@ class QuantifySuite extends riceFunSuite {
     val reads = ReadGenerator(transcripts, Seq(0.2, 0.1, 0.05, 0.2, 0.05, 0.4), 10000, 75, Some(4321L))
 
     // run quantification
-    val relativeAbundances = Quantify(sc.parallelize(reads),
+    val relativeAbundances = Quantify(
+      AlignmentRecordRDD(sc.parallelize(reads), SequenceDictionary.empty, RecordGroupDictionary.empty, Seq.empty),
       sc.parallelize(kmerMap.toSeq),
       sc.parallelize(classMap.toSeq),
       sc.parallelize(names.zip(tLen).map(p => Transcript(p._1,
