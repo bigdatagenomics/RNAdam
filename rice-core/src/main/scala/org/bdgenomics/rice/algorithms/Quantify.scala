@@ -21,8 +21,9 @@ import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext._
 import org.bdgenomics.adam.rdd.ADAMContext._
+import org.bdgenomics.adam.rdd.read.AlignmentRecordRDD
 import org.bdgenomics.formats.avro.AlignmentRecord
-import org.bdgenomics.adam.models.Transcript
+import org.bdgenomics.rice.models.Transcript
 import org.bdgenomics.rice.Timers._
 
 object Quantify extends Serializable with Logging {
@@ -39,7 +40,7 @@ object Quantify extends Serializable with Logging {
    * Patro, Rob, Stephen M. Mount, and Carl Kingsford. "Sailfish enables alignment-free
    * isoform quantification from RNA-seq reads using lightweight algorithms." Nature biotechnology 32.5 (2014): 462-464.
    */
-  def apply(reads: RDD[AlignmentRecord],
+  def apply(reads: AlignmentRecordRDD,
             kmerToEquivalenceClass: RDD[(String, Long)],
             equivalenceClassToTranscript: RDD[(Long, Iterable[String])],
             transcripts: RDD[Transcript],
@@ -56,7 +57,7 @@ object Quantify extends Serializable with Logging {
 
     // cut reads into kmers and then calibrate if desired
     val readKmers = CountKmers.time {
-      reads.adamCountKmers(kmerLength)
+      reads.countKmers(kmerLength)
     }
     val calibratedKmers = if (calibrateKmerBias) {
       TareKmers.time {
@@ -175,7 +176,7 @@ object Quantify extends Serializable with Logging {
   private[algorithms] def initializeEM(equivalenceClassCounts: RDD[(Long, Long)],
                                        equivalenceClassToTranscript: RDD[(Long, Iterable[String])]): RDD[(Long, Iterable[(String, Double)])] = {
     equivalenceClassCounts.join(equivalenceClassToTranscript).map((x: (Long, (Long, Iterable[String]))) => {
-      val normCoverage: Double = x._2._1.toDouble / x._2._2.size()
+      val normCoverage: Double = x._2._1.toDouble / x._2._2.size
       val iter2: Iterable[(String, Double)] = x._2._2.map((y: String) => {
         (y, normCoverage)
       })

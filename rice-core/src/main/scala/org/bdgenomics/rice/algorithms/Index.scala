@@ -22,8 +22,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext._
 import org.bdgenomics.adam.rdd.ADAMContext._
 import org.bdgenomics.formats.avro.NucleotideContigFragment
-import org.bdgenomics.adam.models.{ Exon, Transcript }
 import org.bdgenomics.rice.Timers._
+import org.bdgenomics.rice.models.{ Exon, Transcript }
 import org.bdgenomics.adam.util.{ TwoBitFile, ReferenceFile }
 import scala.util.hashing.MurmurHash3
 

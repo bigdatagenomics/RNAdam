@@ -18,12 +18,12 @@
 package org.bdgenomics.rice.algorithms
 
 import org.apache.spark.rdd.RDD
-import org.bdgenomics.rice.utils.riceFunSuite
+import org.bdgenomics.rice.utils.RiceFunSuite
 import org.bdgenomics.rice.utils.TranscriptGenerator
 import scala.math.{ abs, exp, log, max, min }
 import scala.util.Random
 
-class TareSuite extends riceFunSuite {
+class TareSuite extends RiceFunSuite {
 
   def fpEquals(a: Double, b: Double, eps: Double = 1e-6): Boolean = {
     val passed = abs(a - b) <= eps

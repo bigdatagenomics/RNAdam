@@ -17,14 +17,14 @@
   <name>rice: an ADAM-based RNA-seq quantification pipeline</name>
 
   <properties>
-    <adam.version>0.17.0</adam.version>
+    <adam.version>0.23.0</adam.version>
     <avro.version>1.7.6</avro.version>
-    <hadoop.version>2.2.0</hadoop.version>
-    <java.version>1.7</java.version>
-    <parquet.version>1.7.0</parquet.version>
-    <spark.version>1.2.1</spark.version>
+    <hadoop.version>2.7.3</hadoop.version>
+    <java.version>1.8</java.version>
+    <parquet.version>1.8.2</parquet.version>
+    <spark.version>1.6.3</spark.version>
     <!-- Edit the following line to configure the Hadoop (HDFS) version. -->
-    <utils.version>0.2.2</utils.version>
+    <utils.version>0.2.13</utils.version>
   </properties>
 
   <modules>
@@ -236,7 +236,7 @@
       <dependency>
         <groupId>args4j</groupId>
         <artifactId>args4j</artifactId>
-        <version>2.0.23</version>
+        <version>2.0.31</version>
       </dependency>
       <dependency>
         <groupId>org.bdgenomics.rice</groupId>
@@ -314,18 +314,13 @@
       <dependency>
         <groupId>org.scalatest</groupId>
         <artifactId>scalatest_2.10</artifactId>
-        <version>2.2.2</version>
+        <version>2.2.6</version>
         <scope>test</scope>
       </dependency>
       <dependency>
         <groupId>commons-configuration</groupId>
         <artifactId>commons-configuration</artifactId>
         <version>1.10</version>
-      </dependency>
-      <dependency>
-        <groupId>args4j</groupId>
-        <artifactId>args4j</artifactId>
-        <version>2.0.23</version>
       </dependency>
       <dependency>
         <groupId>org.apache.spark</groupId>
