@@ -19,12 +19,12 @@ package org.bdgenomics.rice.utils
 
 import org.bdgenomics.utils.misc.SparkFunSuite
 
-trait riceFunSuite extends SparkFunSuite {
+trait RiceFunSuite extends SparkFunSuite {
 
   override val appName: String = "rice"
   override val properties: Map[String, String] = Map(("spark.serializer", "org.apache.spark.serializer.KryoSerializer"),
     ("spark.kryo.registrator", "org.bdgenomics.adam.serialization.ADAMKryoRegistrator"),
-    ("spark.kryoserializer.buffer.mb", "4"),
+    ("spark.kryoserializer.buffer", "4"),
     ("spark.kryo.referenceTracking", "true"))
 }
 

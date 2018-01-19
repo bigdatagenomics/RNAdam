@@ -25,7 +25,7 @@ import org.bdgenomics.adam.models.{
 }
 import org.bdgenomics.adam.rdd.read.AlignmentRecordRDD
 import org.bdgenomics.rice.models.{ Exon, Transcript }
-import org.bdgenomics.rice.utils.riceFunSuite
+import org.bdgenomics.rice.utils.RiceFunSuite
 import org.bdgenomics.rice.utils.{ ReadGenerator, TranscriptGenerator }
 import scala.collection.Map
 import scala.collection.immutable.HashMap
@@ -45,7 +45,7 @@ class TestingTwoBitFile(byteAccess: ByteAccess) extends ReferenceFile with Seria
   }
 }
 
-class QuantifySuite extends riceFunSuite {
+class QuantifySuite extends RiceFunSuite {
 
   def fpEquals(a: Double, b: Double, eps: Double = 1e-6): Boolean = {
     val passed = abs(a - b) <= eps
